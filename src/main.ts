@@ -510,7 +510,7 @@ class VimEngine {
       case "open": return [{ t: "command", id: "search.titles" }] // open a note by title
       case "new": return [{ t: "command", id: "note.new" }]
       case "workspace": return [{ t: "command", id: "workspace.new" }]
-      case "commands": return [{ t: "command", id: "palette.open" }] // the command palette (⌘P)
+      case "commands": return [{ t: "command", id: "palette.open" }] // the command palette (⌘P / Ctrl+P)
       default:
         if (/^\d+$/.test(cmd)) return [{ t: "move", at: new Doc(ctx.text).firstNonBlankOfLine(parseInt(cmd, 10)) }]
         // Any command by id, the app's (`note.new`) or a plugin's (`fulgurite.math:insert-inline`): what makes every
@@ -921,12 +921,14 @@ const VIMRC_TEMPLATE = `" Fulgurite Vim config. Saved changes apply immediately.
 " Keys: single characters, <Space>, <CR>, <leader> (set with: let mapleader = " ")
 "
 " Ex commands and their default keys:
-"   :find      /          find in this note (the find bar; ⌘F does the same)
+"   :find      /          find in this note (the find bar; ⌘F / Ctrl+F does the same)
 "   :findnext  n          next match             :findprev  N          previous match
-"   :search    <Space>f   search all notes (⌘⇧F) :open      <Space>o   open a note by title (⌘⇧O)
-"   :new       <Space>n   new note (⌘N)          :workspace            new workspace (⌘⇧N)
-"   :commands  <Space>p   the command palette (⌘P)
-"   :goto      gf         open the [[link]] under the cursor (⌘-click does the same)
+"   :search    <Space>f   search all notes (⌘⇧F / Ctrl+E)
+"   :open      <Space>o   open a note by title (⌘⇧O / Ctrl+O)
+"   :new       <Space>n   new note (⌘N / Ctrl+N)
+"   :workspace            new workspace (⌘⇧N / Ctrl+Shift+N)
+"   :commands  <Space>p   the command palette (⌘P / Ctrl+P)
+"   :goto      gf         open the [[link]] under the cursor (⌘-click / Ctrl+click does the same)
 "   :w  :q  :wq           save / close / both
 " Any command in the palette by its id, e.g.  :fulgurite.math:insert-inline  or  :view.toggleSidebar
 "

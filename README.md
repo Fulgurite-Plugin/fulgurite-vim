@@ -27,4 +27,4 @@ nnoremap <leader>b :view.toggleSidebar<CR>
 
 ## Development
 
-See [api](https://github.com/Fulgurite-Plugin/api).
+See [api](https://github.com/Fulgurite-Plugin/fulgurite-api).

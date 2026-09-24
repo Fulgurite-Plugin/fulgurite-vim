@@ -3,7 +3,7 @@
   "displayName": "Vim",
   "version": "0.1.0",
   "description": "Vim keybindings",
-  "repository": "https://github.com/Fulgurite-Plugin/vim",
+  "repository": "https://github.com/Fulgurite-Plugin/fulgurite-vim",
   "license": "MIT",
   "main": "main.js",
   "isDesktopOnly": false,
@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
-    "fulgurite": "github:Fulgurite-Plugin/api#v0.1.0",
+    "fulgurite": "github:Fulgurite-Plugin/fulgurite-api#v0.1.0",
     "typescript": "^5.6.0"
   }
 }

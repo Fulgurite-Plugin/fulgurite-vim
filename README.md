@@ -3,7 +3,9 @@
 Vim keybindings for [Fulgurite](https://github.com/Fulgurite-Plugin): normal, insert, visual and visual-line modes,
 counts, operators with motions and text objects, `.` repeat, ex commands and a vimrc.
 
-- Motions `hjkl w b e 0 ^ $ gg G f t { }` with counts (`3w`)
+- Motions `hjkl w b e W B E ge gE 0 ^ $ | + - _ <CR> gg G f t F T ; , % { } H M L` with counts (`3w`, `50%`)
+- Scrolling `Ctrl-d Ctrl-u` (a count sets how far, like Vim's `'scroll'`), `Ctrl-f Ctrl-b`, `Ctrl-e Ctrl-y`, `zt zz zb`.
+  On Windows Ctrl+F, Ctrl+E and Ctrl+Y stay the app's (find, search, redo)
 - Operators `d c y` + a motion or text object (`dw ciw da" di( yip`), `dd cc yy`, `x X D C`, `p P`, `r`, `.`
 - `v V` visual, `u` / `Ctrl-r`, `:w :q :wq :<line>`
 - `<Space>p` the command palette, `<Space>f` search, `<Space>o` open by title, `<Space>n` new note, `gf` the

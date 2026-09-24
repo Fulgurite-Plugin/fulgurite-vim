@@ -25,6 +25,8 @@ interface Ctx {
   text: string
   cursor: number
   clipboard: string
+  /** [start, end) of the text on screen. */
+  visible: readonly [number, number]
 }
 
 /** Applies commands the way the shell does. Used by `.` repeat. */
@@ -108,14 +110,24 @@ class Doc {
     }
     return j
   }
-  firstNonBlankOfLine(n: number): number {
+  /** 1-based, like `:n` and `nG`. */
+  firstNonBlankOfLine(n: number): number { return this.firstNonBlankAt(this.lineStartOf(n - 1)) }
+
+  /** 0-based line number of offset `i`. */
+  lineOf(i: number): number {
+    let n = 0
+    for (let nl = this.s.indexOf("\n"); nl >= 0 && nl < i; nl = this.s.indexOf("\n", nl + 1)) n++
+    return n
+  }
+  /** Start of 0-based line `n`, clamped to the first and last lines. */
+  lineStartOf(n: number): number {
     let start = 0
-    for (let k = 1; k < Math.max(n, 1); k++) {
+    for (let k = 0; k < n; k++) {
       const next = this.nextLineStart(start)
       if (next === null) break
       start = next
     }
-    return this.firstNonBlankAt(start)
+    return start
   }
 
   /** Normal-mode cursor never rests on the newline of a non-empty line. */
@@ -125,39 +137,67 @@ class Doc {
     return j >= end && end > this.lineStart(j) ? this.prev(end) : j
   }
 
-  /** 0 = whitespace, 1 = word (letters, digits, `_`), 2 = punctuation. Vim's `iskeyword` model. */
-  cls(i: number): 0 | 1 | 2 {
+  /** 0 = whitespace, 1 = word (letters, digits, `_`), 2 = punctuation. Vim's `iskeyword` model. A `big` WORD
+   *  (`W` `B` `E`) is anything but whitespace. */
+  cls(i: number, big = false): 0 | 1 | 2 {
     const c = this.char(i)
     if (c === undefined) return 0
     if (c === 32 || c === 9 || c === 10 || c === 13) return 0
-    if (c === 95 || isLead(c) || isTrail(c)) return 1
+    if (big || c === 95 || isLead(c) || isTrail(c)) return 1
     return WORD.test(String.fromCharCode(c)) ? 1 : 2
   }
 
-  wordForward(i: number): number {
+  wordForward(i: number, big = false): number {
     let j = i
-    const c = this.cls(j)
-    if (c !== 0) while (j < this.length && this.cls(j) === c) j = this.next(j)
+    const c = this.cls(j, big)
+    if (c !== 0) while (j < this.length && this.cls(j, big) === c) j = this.next(j)
     while (j < this.length && this.cls(j) === 0) {
       if (this.char(j) === 10 && this.isBlankLine(j + 1) && j + 1 < this.length) return j + 1 // empty line is a word stop
       j = this.next(j)
     }
     return j
   }
-  wordEnd(i: number): number {
+  wordEnd(i: number, big = false): number {
     let j = this.next(i)
     while (j < this.length && this.cls(j) === 0) j = this.next(j)
     if (j >= this.length) return this.prev(this.length)
-    const c = this.cls(j)
-    while (this.next(j) < this.length && this.cls(this.next(j)) === c) j = this.next(j)
+    const c = this.cls(j, big)
+    while (this.next(j) < this.length && this.cls(this.next(j), big) === c) j = this.next(j)
     return j
   }
-  wordBackward(i: number): number {
+  wordBackward(i: number, big = false): number {
     let j = this.prev(i)
     while (j > 0 && this.cls(j) === 0) j = this.prev(j)
-    const c = this.cls(j)
-    while (j > 0 && this.cls(this.prev(j)) === c) j = this.prev(j)
+    const c = this.cls(j, big)
+    while (j > 0 && this.cls(this.prev(j), big) === c) j = this.prev(j)
     return j
+  }
+  /** `ge`: the end of the word before the one at `i`. */
+  wordEndBackward(i: number, big = false): number {
+    let j = i
+    const c = this.cls(j, big)
+    if (c !== 0) while (j > 0 && this.cls(j, big) === c) j = this.prev(j)
+    while (j > 0 && this.cls(j) === 0) j = this.prev(j)
+    return j
+  }
+
+  /** `%`: the bracket matching the first one at or after `i` on its line. */
+  matchPair(i: number): number | null {
+    const PAIRS = "()[]{}"
+    const end = this.contentsEnd(i)
+    let j = i
+    while (j < end && !PAIRS.includes(this.s[j]!)) j++
+    if (j >= end) return null
+    const k = PAIRS.indexOf(this.s[j]!)
+    const step = k % 2 === 0 ? 1 : -1
+    const same = PAIRS[k]!
+    const other = PAIRS[k + step]!
+    let depth = 0
+    for (let p = j; p >= 0 && p < this.length; p += step) {
+      if (this.s[p] === same) depth++
+      else if (this.s[p] === other && --depth === 0) return p
+    }
+    return null
   }
 
   paragraphForward(i: number): number {
@@ -227,13 +267,14 @@ class Doc {
     switch (obj) {
       case "w": case "W": {
         if (cur >= this.length || this.char(cur) === 10) return null
-        const c = this.cls(cur)
+        const big = obj === "W"
+        const c = this.cls(cur, big)
         const ls = this.lineStart(cur)
         const ce = this.contentsEnd(cur)
         let lo = cur
         let hi = this.next(cur)
-        while (lo > ls && this.cls(this.prev(lo)) === c) lo = this.prev(lo)
-        while (hi < ce && this.cls(hi) === c) hi = this.next(hi)
+        while (lo > ls && this.cls(this.prev(lo), big) === c) lo = this.prev(lo)
+        while (hi < ce && this.cls(hi, big) === c) hi = this.next(hi)
         if (around) {
           let trailing = hi
           while (trailing < ce && this.cls(trailing) === 0) trailing = this.next(trailing)
@@ -378,20 +419,31 @@ export function parseVimrc(text: string): Mapping[] {
 // MARK: - Engine
 
 type Motion =
-  | { kind: "left" | "right" | "up" | "down" | "wordForward" | "wordBackward" | "wordEnd" | "lineStart" | "firstNonBlank" | "lineEnd" | "paragraphForward" | "paragraphBackward" }
+  | { kind: "left" | "right" | "up" | "down" | "lineStart" | "firstNonBlank" | "lineEnd" | "column" | "paragraphForward" | "paragraphBackward" | "matchPair" }
+  | { kind: "wordForward" | "wordBackward" | "wordEnd" | "wordEndBackward"; big?: boolean }
+  /** `+` `-` `_`: lines down (1) or up (-1) to the first non-blank; `_` (0) is `+` one line short. */
+  | { kind: "nonBlankLine"; delta: 1 | -1 | 0 }
+  | { kind: "screen"; at: "H" | "M" | "L" }
   | { kind: "gotoLine"; defaultLast: boolean }
-  | { kind: "findChar"; ch: string; find: string }
+  /** `repeat`: `;` or `,`, which don't stop at the character a `t` already stands before. */
+  | { kind: "findChar"; ch: string; find: string; repeat?: boolean }
 
 const MOTIONS: Record<string, Motion> = {
   h: { kind: "left" }, "<Left>": { kind: "left" }, "<BS>": { kind: "left" },
   l: { kind: "right" }, "<Right>": { kind: "right" }, "<Space>": { kind: "right" },
-  j: { kind: "down" }, "<Down>": { kind: "down" },
-  k: { kind: "up" }, "<Up>": { kind: "up" },
+  j: { kind: "down" }, "<Down>": { kind: "down" }, "<C-j>": { kind: "down" }, "<C-n>": { kind: "down" },
+  k: { kind: "up" }, "<Up>": { kind: "up" }, "<C-p>": { kind: "up" },
   w: { kind: "wordForward" }, b: { kind: "wordBackward" }, e: { kind: "wordEnd" },
-  "0": { kind: "lineStart" }, "^": { kind: "firstNonBlank" }, "$": { kind: "lineEnd" },
-  "}": { kind: "paragraphForward" }, "{": { kind: "paragraphBackward" },
+  W: { kind: "wordForward", big: true }, B: { kind: "wordBackward", big: true }, E: { kind: "wordEnd", big: true },
+  "0": { kind: "lineStart" }, "^": { kind: "firstNonBlank" }, "$": { kind: "lineEnd" }, "|": { kind: "column" },
+  "+": { kind: "nonBlankLine", delta: 1 }, "<CR>": { kind: "nonBlankLine", delta: 1 },
+  "-": { kind: "nonBlankLine", delta: -1 }, _: { kind: "nonBlankLine", delta: 0 },
+  "}": { kind: "paragraphForward" }, "{": { kind: "paragraphBackward" }, "%": { kind: "matchPair" },
+  H: { kind: "screen", at: "H" }, M: { kind: "screen", at: "M" }, L: { kind: "screen", at: "L" },
   G: { kind: "gotoLine", defaultLast: true },
 }
+
+const REVERSE: Record<string, string> = { f: "F", F: "f", t: "T", T: "t" }
 
 /** Pure Vim state machine: keys in, `Cmd`s out. Keys are single characters or `<Esc> <CR> <BS> <Space> <Tab> <C-x> <Left>…`.
  *  In insert mode only `<Esc>` is handled; typing goes to the shell natively (IME-safe).
@@ -407,6 +459,10 @@ class VimEngine {
   private prefix: string | null = null
   private anchor = 0
   private vcursor = 0
+  /** The last `f` `t` `F` `T`, for `;` and `,`. */
+  private lastFind: { ch: string; find: string } | null = null
+  /** Vim's 'scroll': lines CTRL-D and CTRL-U move, set by their count; half the screen until then. */
+  private scrollLines: number | null = null
   private stickyColumn: number | null = null
   private insertStart: number | null = null
   private recording: string[] | null = null
@@ -637,18 +693,41 @@ class VimEngine {
         this.mode = "command"
         this.commandLine = ""
         return []
-      case "g": case "f": case "t": case "F": case "T": case "r":
+      case "g": case "f": case "t": case "F": case "T": case "r": case "z":
         this.prefix = key
         return []
+      case ";": case ",": {
+        const last = this.lastFind
+        if (!last) break
+        return this.move({ kind: "findChar", ch: last.ch, find: key === ";" ? last.find : REVERSE[last.find]!, repeat: true }, cur, doc, ctx)
+      }
+      case "<C-d>": case "<C-u>": { // half a screen: the cursor and the view move the same number of lines
+        if (this.op !== null) break
+        const { top, bottom } = this.screen(doc, ctx)
+        if (this.count !== null) this.scrollLines = this.count
+        const h = this.scrollLines ?? Math.max(1, Math.floor((bottom - top + 1) / 2))
+        const down = key === "<C-d>"
+        this.count = h
+        return [...this.move({ kind: down ? "down" : "up" }, cur, doc, ctx), this.scrollTo(doc, top + (down ? h : -h))]
+      }
+      case "<C-f>": case "<C-b>": { // a screen, two lines kept
+        if (this.op !== null) break
+        const { top, bottom } = this.screen(doc, ctx)
+        const page = Math.max(1, bottom - top - 1) * n
+        return this.scrollKeepingCursor(top + (key === "<C-f>" ? page : -page), bottom - top, cur, doc, ctx)
+      }
+      case "<C-e>": case "<C-y>": { // the view by lines, the cursor only when it would leave the screen
+        if (this.op !== null) break
+        const { top, bottom } = this.screen(doc, ctx)
+        return this.scrollKeepingCursor(top + (key === "<C-e>" ? n : -n), bottom - top, cur, doc, ctx)
+      }
       default: {
         const m = MOTIONS[key]
-        if (!m) {
-          this.reset()
-          return []
-        }
-        return this.move(m, cur, doc, ctx)
+        if (m) return this.move(m, cur, doc, ctx)
       }
     }
+    this.reset()
+    return []
   }
 
   private completePrefix(p: string, key: string, cur: number, doc: Doc, ctx: Ctx): Cmd[] {
@@ -656,10 +735,19 @@ class VimEngine {
     switch (p) {
       case "g":
         if (key === "g") return this.move({ kind: "gotoLine", defaultLast: false }, cur, doc, ctx)
+        if (key === "e" || key === "E") return this.move({ kind: "wordEndBackward", big: key === "E" }, cur, doc, ctx)
         break
       case "f": case "t": case "F": case "T":
-        if (ch !== null) return this.move({ kind: "findChar", ch, find: p }, cur, doc, ctx)
-        break
+        if (ch === null) break
+        this.lastFind = { ch, find: p }
+        return this.move({ kind: "findChar", ch, find: p }, cur, doc, ctx)
+      case "z": { // the cursor line to the top, middle or bottom of the screen
+        if (this.op !== null) break
+        const at = key === "t" ? doc.lineStart(cur) : key === "z" ? cur : key === "b" ? doc.contentsEnd(cur) : null
+        if (at === null) break
+        this.reset()
+        return [this.scrollCmd(at, key === "t" ? "top" : key === "z" ? "center" : "bottom")]
+      }
       case "r": {
         if (ch === null) break
         const n = this.count ?? 1
@@ -720,22 +808,55 @@ class VimEngine {
         break
       }
       case "wordForward":
-        for (let k = 0; k < n; k++) target = doc.wordForward(target)
+        for (let k = 0; k < n; k++) target = doc.wordForward(target, m.big)
         if (this.op === "c" && doc.cls(cur) !== 0) { // Vim quirk: cw behaves like ce
           target = cur
-          for (let k = 0; k < n; k++) target = doc.wordEnd(target)
+          for (let k = 0; k < n; k++) target = doc.wordEnd(target, m.big)
           inclusive = true
         } else if (this.op !== null && n === 1 && target > doc.contentsEnd(cur)) { // dw on the last word stops at line end
           target = doc.contentsEnd(cur)
         }
         break
       case "wordBackward":
-        for (let k = 0; k < n; k++) target = doc.wordBackward(target)
+        for (let k = 0; k < n; k++) target = doc.wordBackward(target, m.big)
         break
       case "wordEnd":
-        for (let k = 0; k < n; k++) target = doc.wordEnd(target)
+        for (let k = 0; k < n; k++) target = doc.wordEnd(target, m.big)
         inclusive = true
         break
+      case "wordEndBackward":
+        for (let k = 0; k < n; k++) target = doc.wordEndBackward(target, m.big)
+        inclusive = true
+        break
+      case "column": target = doc.align(Math.min(doc.lineStart(cur) + n - 1, doc.contentsEnd(cur))); break
+      case "nonBlankLine": {
+        const lines = m.delta === 0 ? n - 1 : n * m.delta
+        target = doc.firstNonBlankAt(doc.lineStartOf(Math.max(0, doc.lineOf(cur) + lines)))
+        linewise = true
+        break
+      }
+      case "screen": {
+        const { top, bottom } = this.screen(doc, ctx)
+        const line = m.at === "H" ? Math.min(top + n - 1, bottom) : m.at === "L" ? Math.max(bottom - n + 1, top) : Math.floor((top + bottom) / 2)
+        target = doc.firstNonBlankAt(doc.lineStartOf(line))
+        linewise = true
+        break
+      }
+      case "matchPair": {
+        if (this.count !== null) { // N%: that far into the note
+          target = doc.firstNonBlankOfLine(Math.ceil((this.count * (doc.lineOf(doc.length) + 1)) / 100))
+          linewise = true
+          break
+        }
+        const match = doc.matchPair(cur)
+        if (match === null) {
+          this.reset()
+          return []
+        }
+        target = match
+        inclusive = true
+        break
+      }
       case "lineStart": target = doc.lineStart(cur); break
       case "firstNonBlank": target = doc.firstNonBlankAt(cur); break
       case "lineEnd": {
@@ -759,7 +880,10 @@ class VimEngine {
         linewise = true
         break
       case "findChar": {
-        const found = doc.find(m.ch, cur, m.find === "f" || m.find === "t", n)
+        let from = cur
+        if (m.repeat && m.find === "t" && cur < doc.contentsEnd(cur)) from = doc.next(cur)
+        if (m.repeat && m.find === "T" && cur > doc.lineStart(cur)) from = doc.prev(cur)
+        const found = doc.find(m.ch, from, m.find === "f" || m.find === "t", n)
         if (found === null) {
           this.reset()
           return []
@@ -908,6 +1032,27 @@ class VimEngine {
   }
 
   private selection(doc: Doc): Cmd { return { t: "select", range: this.selectionRange(doc) } }
+
+  /** Lines on screen (0-based): the first that starts on it (a wrapped line cut at the top doesn't) and the last. */
+  private screen(doc: Doc, ctx: Ctx): { top: number; bottom: number } {
+    const [start, end] = ctx.visible
+    const bottom = doc.lineOf(Math.max(start, end - 1))
+    const first = doc.lineOf(start)
+    return { top: start > doc.lineStart(start) && first < bottom ? first + 1 : first, bottom }
+  }
+
+  private scrollCmd(offset: number, at: "top" | "center" | "bottom"): Cmd { return { t: "command", id: `edit.scroll ${offset} ${at}` } }
+  private scrollTo(doc: Doc, top: number): Cmd { return this.scrollCmd(doc.lineStartOf(Math.max(0, top)), "top") }
+
+  /** Line `top` to the top of the screen; the cursor moves only as far as it takes to stay within `rows` below it. */
+  private scrollKeepingCursor(top: number, rows: number, cur: number, doc: Doc, ctx: Ctx): Cmd[] {
+    top = Math.min(Math.max(0, top), doc.lineOf(doc.length))
+    const line = doc.lineOf(cur)
+    const off = line < top ? top - line : line > top + rows ? top + rows - line : 0
+    if (off === 0) this.reset()
+    else this.count = Math.abs(off)
+    return [...(off === 0 ? [] : this.move({ kind: off > 0 ? "down" : "up" }, cur, doc, ctx)), this.scrollTo(doc, top)]
+  }
 }
 
 /** A printable key is one code point; everything else is a `<Name>` token. */
@@ -955,7 +1100,8 @@ const plugin: Plugin = {
       onKey(key, view) {
         if (engine.mode === "insert" && key !== "<Esc>") return false
         if (engine.mode === "normal" && view.selection) engine.adoptSelection(view.selection, view.text)
-        const cmds = engine.handle(key, { text: view.text, cursor: view.cursor, clipboard: view.clipboard })
+        const visible = view.visible ?? [0, view.text.length] // an app from before `visible`
+        const cmds = engine.handle(key, { text: view.text, cursor: view.cursor, clipboard: view.clipboard, visible })
         for (const c of cmds) {
           switch (c.t) {
             case "move": view.moveCursor(c.at); break

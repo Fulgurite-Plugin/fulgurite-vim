@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "Vim keybindings",
   "repository": "https://github.com/Fulgurite-Plugin/vim",
+  "license": "MIT",
   "main": "main.js",
   "isDesktopOnly": false,
   "private": true,

@@ -534,7 +534,7 @@ var __plugin = (() => {
           return [{ t: "command", id: "workspace.new" }];
         case "commands":
           return [{ t: "command", id: "palette.open" }];
-        // the command palette (⌘P)
+        // the command palette (⌘P / Ctrl+P)
         default:
           if (/^\d+$/.test(cmd)) return [{ t: "move", at: new Doc(ctx.text).firstNonBlankOfLine(parseInt(cmd, 10)) }];
           if (/^[\w-]+(\.[\w-]+)+(:[\w-]+)?$/.test(cmd)) return [{ t: "command", id: cmd }];
@@ -960,12 +960,14 @@ var __plugin = (() => {
 " Keys: single characters, <Space>, <CR>, <leader> (set with: let mapleader = " ")
 "
 " Ex commands and their default keys:
-"   :find      /          find in this note (the find bar; \u2318F does the same)
+"   :find      /          find in this note (the find bar; \u2318F / Ctrl+F does the same)
 "   :findnext  n          next match             :findprev  N          previous match
-"   :search    <Space>f   search all notes (\u2318\u21E7F) :open      <Space>o   open a note by title (\u2318\u21E7O)
-"   :new       <Space>n   new note (\u2318N)          :workspace            new workspace (\u2318\u21E7N)
-"   :commands  <Space>p   the command palette (\u2318P)
-"   :goto      gf         open the [[link]] under the cursor (\u2318-click does the same)
+"   :search    <Space>f   search all notes (\u2318\u21E7F / Ctrl+E)
+"   :open      <Space>o   open a note by title (\u2318\u21E7O / Ctrl+O)
+"   :new       <Space>n   new note (\u2318N / Ctrl+N)
+"   :workspace            new workspace (\u2318\u21E7N / Ctrl+Shift+N)
+"   :commands  <Space>p   the command palette (\u2318P / Ctrl+P)
+"   :goto      gf         open the [[link]] under the cursor (\u2318-click / Ctrl+click does the same)
 "   :w  :q  :wq           save / close / both
 " Any command in the palette by its id, e.g.  :fulgurite.math:insert-inline  or  :view.toggleSidebar
 "

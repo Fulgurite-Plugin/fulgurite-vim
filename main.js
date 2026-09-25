@@ -1111,7 +1111,7 @@ var __plugin = (() => {
   function isChar(key) {
     return [...key].length === 1;
   }
-  var VIMRC_TEMPLATE = `" Fulgurite Vim config. Saved changes apply immediately.
+  var VIMRC_TEMPLATE = `" fulgurite Vim config. Saved changes apply immediately.
 " Normal-mode mappings to ex commands:  nmap / nnoremap <keys> :<command><CR>   and   nunmap <keys>
 " Keys: single characters, <Space>, <CR>, <leader> (set with: let mapleader = " ")
 "

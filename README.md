@@ -1,6 +1,6 @@
 # Vim
 
-Vim keybindings for [Fulgurite](https://github.com/Fulgurite-Plugin): normal, insert, visual and visual-line modes,
+Vim keybindings for [fulgurite](https://github.com/fulgurite-plugin): normal, insert, visual and visual-line modes,
 counts, operators with motions and text objects, `.` repeat, ex commands and a vimrc.
 
 - Motions `hjkl w b e W B E ge gE 0 ^ $ | + - _ <CR> gg G f t F T ; , % { } H M L` with counts (`3w`, `50%`)
@@ -18,7 +18,7 @@ need a hardware keyboard.
 
 ## vimrc
 
-Settings › Plugin Options › Vim › Edit vimrc… (`~/.config/fulgurite/vimrc` on the Mac, Files › Fulgurite › vimrc on
+Settings › Plugin Options › Vim › Edit vimrc… (`~/.config/fulgurite/vimrc` on the Mac, Files › fulgurite › vimrc on
 iPhone and iPad). Saved changes apply immediately. It takes comments, `let mapleader = " "`,
 `nmap` / `nnoremap <keys> :<ex command><CR>` and `nunmap <keys>`. `:<command id>` runs any command in the palette:
 
@@ -29,4 +29,4 @@ nnoremap <leader>b :view.toggleSidebar<CR>
 
 ## Development
 
-See [api](https://github.com/Fulgurite-Plugin/fulgurite-api).
+See [api](https://github.com/fulgurite-plugin/fulgurite-api).

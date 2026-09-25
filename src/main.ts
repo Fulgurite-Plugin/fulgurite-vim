@@ -1,4 +1,4 @@
-// Vim as a Fulgurite plugin: the first user of the plugin API. Pure state machine (keys in, edits out),
+// Vim as a fulgurite plugin: the first user of the plugin API. Pure state machine (keys in, edits out),
 // no platform code, so the same bundle runs on every shell. Offsets are UTF-16 code units.
 import type { EditorStatus, Plugin, PluginContext } from "fulgurite"
 
@@ -1061,7 +1061,7 @@ function isChar(key: string): boolean { return [...key].length === 1 }
 // MARK: - Plugin
 
 /** What a new vimrc starts as: a commented reference, like `:help` in a file. */
-const VIMRC_TEMPLATE = `" Fulgurite Vim config. Saved changes apply immediately.
+const VIMRC_TEMPLATE = `" fulgurite Vim config. Saved changes apply immediately.
 " Normal-mode mappings to ex commands:  nmap / nnoremap <keys> :<command><CR>   and   nunmap <keys>
 " Keys: single characters, <Space>, <CR>, <leader> (set with: let mapleader = " ")
 "
